@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { TokenRequest, TokenResponse } from "@soundboard/shared";
+import { upsertProfile } from "../db.ts";
 import { env } from "../env.ts";
 import { fetchDiscordUser, sendError } from "../http.ts";
 
@@ -32,7 +33,8 @@ authRouter.post("/auth/token", async (req, res) => {
   const user = await fetchDiscordUser(access_token);
   if (!user) return sendError(res, "UNAUTHENTICATED", "사용자 정보를 가져오지 못했습니다.");
 
-  // TODO(M4): profiles upsert (discord_user_id = user.id)
+  // 최초 접속 시 프로필 생성, 이후엔 이름·아바타 갱신 (FR-3)
+  await upsertProfile(user.id, user.global_name ?? user.username, user.avatar);
 
   const body: TokenResponse = {
     accessToken: access_token,

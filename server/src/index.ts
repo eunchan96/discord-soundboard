@@ -6,7 +6,10 @@ import { bot } from "./bot/client.ts";
 import { env } from "./env.ts";
 import { sendError } from "./http.ts";
 import { authRouter } from "./routes/auth.ts";
+import { categoriesRouter } from "./routes/categories.ts";
 import { playbackRouter } from "./routes/playback.ts";
+import { settingsRouter } from "./routes/settings.ts";
+import { soundsRouter } from "./routes/sounds.ts";
 
 const app = express();
 app.use(express.json());
@@ -22,8 +25,14 @@ app.use(API_BASE, (req, res, next) => {
   next();
 });
 
+const GUILD = `${API_BASE}/guilds/:guildId`;
 app.use(API_BASE, authRouter);
-app.use(API_BASE, playbackRouter);
+app.use(GUILD, settingsRouter);
+app.use(GUILD, soundsRouter);
+app.use(GUILD, categoriesRouter);
+app.use(GUILD, playbackRouter);
+
+app.use(API_BASE, (_req, res) => sendError(res, "NOT_FOUND", "없는 API 경로입니다."));
 
 // 처리되지 않은 오류도 ApiError JSON으로 응답 (HTML 오류 페이지 대신)
 app.use(API_BASE, (err: unknown, _req: Request, res: Response, _next: NextFunction) => {

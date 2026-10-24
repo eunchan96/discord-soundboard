@@ -75,6 +75,18 @@ create table public.playback_requests (
 );
 create index playback_requests_guild_created_idx on public.playback_requests (guild_id, created_at desc);
 
+-- 재생 완료 시 play_count를 원자적으로 증가 (서버에서 rpc로 호출)
+create or replace function public.increment_play_count(p_sound_id uuid)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  update public.sounds set play_count = play_count + 1 where id = p_sound_id;
+$$;
+revoke execute on function public.increment_play_count(uuid) from public, anon, authenticated;
+grant execute on function public.increment_play_count(uuid) to service_role;
+
 -- RLS: 켜기만 하고 정책은 만들지 않음 (기본 거부)
 alter table public.profiles enable row level security;
 alter table public.guild_settings enable row level security;

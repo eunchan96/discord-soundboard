@@ -12,4 +12,6 @@ export const env = {
   discordBotToken: required("DISCORD_BOT_TOKEN"),
   devGuildId: process.env.DEV_GUILD_ID || undefined,
   port: Number(process.env.PORT ?? 3001),
+  supabaseUrl: required("SUPABASE_URL"),
+  supabaseServiceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
 };

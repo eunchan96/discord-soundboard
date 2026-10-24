@@ -11,6 +11,7 @@ export type ErrorCode =
   | "FILE_TOO_LARGE"
   | "UNSUPPORTED_FORMAT"
   | "QUEUE_FULL"
+  | "BOT_BUSY_ELSEWHERE"
   | "BOT_NOT_AVAILABLE"
   | "INTERNAL_ERROR";
 
@@ -19,18 +20,97 @@ export interface ApiError {
   requestId: string;
 }
 
-// POST /auth/token
+export interface UserSummary {
+  id: string; // Discord 사용자 ID
+  username: string;
+  avatarUrl: string | null;
+}
+
+// ── 인증 ──
 export interface TokenRequest {
   code: string;
 }
 export interface TokenResponse {
   accessToken: string;
-  user: { id: string; username: string; avatarUrl: string | null };
+  user: UserSummary;
 }
 
-// POST /guilds/{guildId}/playback-requests/test  (M3 PoC 전용)
-export interface PlaybackTestResponse {
-  /** 요청 수신부터 봇 플레이어가 Playing 상태가 될 때까지(ms) */
-  serverLatencyMs: number;
-  joinedNewConnection: boolean;
+// GET /guilds/{guildId}/me?channelId=
+export interface MeResponse {
+  canUpload: boolean;
+  canManage: boolean;
+  inVoiceChannel: boolean;
+  botInGuild: boolean;
 }
+
+// ── 사운드 ──
+export type Visibility = "private" | "guild";
+
+export interface Sound {
+  id: string;
+  name: string;
+  category: { id: string; name: string } | null;
+  durationSeconds: number;
+  visibility: Visibility;
+  playCount: number;
+  uploader: UserSummary;
+  createdAt: string;
+  /** 요청자가 수정·삭제할 수 있는지 (업로더 본인 또는 관리자) */
+  canEdit: boolean;
+}
+
+export interface SoundListResponse {
+  items: Sound[];
+}
+
+export interface SoundPatch {
+  name?: string;
+  categoryId?: string | null;
+  visibility?: Visibility;
+}
+
+// ── 카테고리 ──
+export interface Category {
+  id: string;
+  name: string;
+  soundCount: number;
+}
+export interface CategoryListResponse {
+  items: Category[];
+}
+
+// ── 재생 ──
+export interface PlaybackItem {
+  requestId: string;
+  sound: { id: string; name: string; durationSeconds: number };
+  requestedBy: UserSummary;
+  requestedAt: string;
+}
+
+export interface PlaybackState {
+  /** 봇이 접속해 있는 음성 채널 (없으면 null) */
+  voiceChannelId: string | null;
+  current: (PlaybackItem & { startedAt: string }) | null;
+  queue: PlaybackItem[];
+}
+
+export interface PlaybackRequestBody {
+  soundId: string;
+}
+export interface PlaybackRequestResponse {
+  requestId: string;
+  /** 0 = 바로 재생, 1 이상 = 대기 순서 */
+  position: number;
+}
+
+// ── 서버 설정 ──
+export interface GuildSettings {
+  maxFileSizeBytes: number;
+  maxDurationSeconds: number;
+  maxQueueSize: number;
+  maxRequestsPerUser: number;
+  allowMemberUpload: boolean;
+  managerRoleId: string | null;
+}
+
+export const ALLOWED_UPLOAD_EXTENSIONS = ["mp3", "ogg", "wav", "m4a"] as const;

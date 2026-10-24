@@ -1,79 +1,75 @@
-import { createReadStream } from "node:fs";
 import {
-  AudioPlayer,
-  AudioPlayerStatus,
+  type AudioPlayer,
+  type VoiceConnection,
   NoSubscriberBehavior,
-  StreamType,
   VoiceConnectionStatus,
   createAudioPlayer,
-  createAudioResource,
   entersState,
   getVoiceConnection,
   joinVoiceChannel,
 } from "@discordjs/voice";
 import type { VoiceBasedChannel } from "discord.js";
 
-const IDLE_LEAVE_MS = 5 * 60_000; // 마지막 재생 후 5분 동안 조용하면 퇴장 (FR-18)
-
 const players = new Map<string, AudioPlayer>();
-const idleTimers = new Map<string, NodeJS.Timeout>();
 
-function getPlayer(guildId: string): AudioPlayer {
+/** 서버당 플레이어 하나. 처음 만들 때 onCreate로 이벤트 핸들러를 붙입니다. */
+export function getPlayer(guildId: string, onCreate: (player: AudioPlayer) => void): AudioPlayer {
   let player = players.get(guildId);
   if (!player) {
     player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
-    player.on("error", (err) => console.error(`[voice:${guildId}] 재생 오류`, err.message));
+    onCreate(player);
     players.set(guildId, player);
   }
   return player;
 }
 
-function scheduleIdleLeave(guildId: string) {
-  clearTimeout(idleTimers.get(guildId));
-  idleTimers.set(
-    guildId,
-    setTimeout(() => {
-      getVoiceConnection(guildId)?.destroy();
-      players.delete(guildId);
-      idleTimers.delete(guildId);
-      console.log(`[voice:${guildId}] 유휴 상태로 퇴장`);
-    }, IDLE_LEAVE_MS),
-  );
-}
-
-export interface PlayResult {
-  latencyMs: number;
-  joinedNewConnection: boolean;
+/** 봇이 지금 접속해 있는 음성 채널 ID */
+export function currentChannelId(guildId: string): string | null {
+  const conn = getVoiceConnection(guildId);
+  if (!conn || conn.state.status === VoiceConnectionStatus.Destroyed) return null;
+  return conn.joinConfig.channelId;
 }
 
 /**
- * 음성 채널에 접속(필요하면 이동)해서 Ogg Opus 파일을 재생합니다.
- * Ogg Opus는 그대로 전달되므로 재생 시점에 FFmpeg·Opus 인코더가 필요 없습니다.
- * 업로드 시 서버에서 Ogg Opus로 변환해 두는 이유가 이것입니다 (FR-10).
+ * 해당 채널에 접속(다른 채널에 있으면 이동)하고 Ready까지 기다립니다.
+ * Discord는 봇 계정 하나가 서버당 한 음성 채널에만 있을 수 있어서, 이동하면 이전 채널에서는 나갑니다.
  */
-export async function playFile(channel: VoiceBasedChannel, filePath: string): Promise<PlayResult> {
-  const started = performance.now();
+export async function connectTo(channel: VoiceBasedChannel, onDestroyed: () => void): Promise<VoiceConnection> {
   const guildId = channel.guild.id;
+  let conn = getVoiceConnection(guildId);
 
-  let connection = getVoiceConnection(guildId);
-  const joinedNewConnection = !connection || connection.joinConfig.channelId !== channel.id;
-  if (joinedNewConnection) {
-    connection = joinVoiceChannel({
+  if (!conn || conn.state.status === VoiceConnectionStatus.Destroyed || conn.joinConfig.channelId !== channel.id) {
+    const isNew = !conn || conn.state.status === VoiceConnectionStatus.Destroyed;
+    conn = joinVoiceChannel({
       guildId,
       channelId: channel.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
       selfDeaf: true,
     });
+    if (isNew) {
+      conn.on(VoiceConnectionStatus.Disconnected, async () => {
+        // 잠깐 끊긴 경우(채널 이동, 네트워크)는 5초 안에 재연결을 기다리고, 아니면 정리합니다.
+        try {
+          await Promise.race([
+            entersState(conn!, VoiceConnectionStatus.Signalling, 5_000),
+            entersState(conn!, VoiceConnectionStatus.Connecting, 5_000),
+          ]);
+        } catch {
+          conn!.destroy();
+        }
+      });
+      conn.on(VoiceConnectionStatus.Destroyed, () => {
+        players.get(guildId)?.stop(true);
+        onDestroyed();
+      });
+    }
   }
-  await entersState(connection!, VoiceConnectionStatus.Ready, 15_000);
 
-  const player = getPlayer(guildId);
-  connection!.subscribe(player);
+  await entersState(conn, VoiceConnectionStatus.Ready, 15_000);
+  return conn;
+}
 
-  const resource = createAudioResource(createReadStream(filePath), { inputType: StreamType.OggOpus });
-  player.play(resource);
-  await entersState(player, AudioPlayerStatus.Playing, 5_000);
-
-  scheduleIdleLeave(guildId);
-  return { latencyMs: Math.round(performance.now() - started), joinedNewConnection };
+export function disconnect(guildId: string) {
+  const conn = getVoiceConnection(guildId);
+  if (conn && conn.state.status !== VoiceConnectionStatus.Destroyed) conn.destroy();
 }

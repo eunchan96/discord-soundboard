@@ -1,7 +1,7 @@
 # Discord 사운드보드
 
-음성 채널에서 Discord Activity를 열어 서버 사운드를 검색·재생하는 서비스입니다.
-현재 단계: **M3 기반 환경 + 음성 재생 PoC**
+음성 채널에서 Discord Activity를 열어 서버 사운드를 검색·미리듣기·재생하는 서비스입니다.
+현재 단계: **M4 핵심 기능** (인증, 라이브러리·업로드, 재생 대기열, 권한)
 
 ```txt
 client/    Activity (React + Vite + Embedded App SDK)
@@ -13,39 +13,30 @@ supabase/  마이그레이션 SQL
 ## 요구 사항
 
 - Node.js **22.12.0 이상** (`@discordjs/voice` 요구 사항)
-- Discord 개발자 모드가 켜진 계정, 봇을 초대할 테스트 서버
+- FFmpeg는 따로 설치하지 않아도 됩니다 (`ffmpeg-static`이 설치 시 내려받음)
 - 터널 도구 (예: `cloudflared`)
 
 ## 1. Discord Developer Portal
 
-1. <https://discord.com/developers/applications> → **New Application**
-2. **OAuth2**
-   - Client ID, Client Secret 복사
-   - Redirects에 `https://127.0.0.1` 하나 추가 (비어 있으면 안 됨)
-3. **Bot** → Reset Token으로 토큰 복사
-4. **Installation** 또는 **OAuth2 → URL Generator**
-   - scope: `bot`, `applications.commands`
-   - 권한: View Channels, Connect, Speak
-   - 생성된 URL로 테스트 서버에 봇 초대
-5. **Activities → Settings**에서 Activities 활성화 (URL Mapping은 3단계에서)
+1. <https://discord.com/developers/applications> → 앱 선택(없으면 New Application)
+2. **OAuth2**: Client ID·Client Secret 복사, Redirects에 `https://127.0.0.1` 하나 추가
+3. **Bot**: Reset Token으로 토큰 복사
+4. **OAuth2 → URL Generator**: scope `bot`·`applications.commands`, 권한 View Channels·Connect·Speak → 생성된 URL로 서버에 초대
+5. **Activities → Settings**에서 Activities 활성화
 
-## 2. 설치
+## 2. Supabase
+
+- 프로젝트: `discord-soundboard` (MyPik 조직, 서울 리전) — `0001_init.sql` 적용 완료
+- 대시보드 → Project Settings → **API Keys** → Secret key를 `.env`의 `SUPABASE_SERVICE_ROLE_KEY`에 넣습니다
+
+## 3. 설치
 
 ```bash
-cp .env.example .env   # 값 채우기 (DEV_GUILD_ID = 테스트 서버 ID)
+cp .env.example .env   # 값 채우기
 npm install
 ```
 
-## 3. PoC ① — 봇만으로 재생 확인
-
-```bash
-npm run dev:server
-```
-
-테스트 서버 음성 채널에 들어간 뒤 `/sound-test` 입력 → 짧은 "삐" 소리와 함께 재생 시작까지 걸린 시간이 답장으로 옵니다.
-처음 한 번은 채널 접속 시간이 포함되고, 두 번째부터가 순수 재생 지연입니다.
-
-## 4. PoC ② — Activity 버튼으로 재생
+## 4. 실행 (개발)
 
 터미널 3개:
 
@@ -56,18 +47,28 @@ cloudflared tunnel --url http://localhost:5173  # 출력된 https 주소 복사
 ```
 
 1. Developer Portal → **Activities → URL Mappings** → Root(`/`)에 터널 주소를 `https://` 없이 입력
-2. 테스트 서버 음성 채널 → 앱 런처(🚀)에서 Activity 실행
-3. 권한 허용 → **테스트 사운드 재생** 버튼 → 표에 지연 시간 기록
+2. 음성 채널 → 앱 런처(🚀)에서 Activity 실행
 
 터널 주소는 실행할 때마다 바뀌므로 URL Mapping도 매번 갱신해야 합니다.
+
+## 동작 규칙
+
+| 항목 | 기본값 (서버 설정으로 변경 가능) |
+| --- | --- |
+| 업로드 | MP3·OGG·WAV·M4A, 1MB·15초 이하, 모든 멤버 허용 → 서버에서 Ogg Opus로 변환·음량 정규화 |
+| 대기열 | 최대 10개, 한 사람당 3개 |
+| 관리자 | 서버 관리(Manage Server) 권한 또는 지정 역할 |
+| 채널 | 같은 서버에서 봇은 한 채널에만 있을 수 있음. 다른 채널에서 재생·대기 중이면 거절, 조용하면 요청자 채널로 이동 |
+| 퇴장 | 대기열이 빈 뒤 5분, 또는 채널에 사람이 없을 때 |
 
 ## 문제 해결
 
 | 증상 | 확인할 것 |
 | --- | --- |
 | Activity가 빈 화면 / 콘솔에 `blocked:csp` | URL Mapping 주소, 요청이 상대 경로(`/api/v1/...`)인지 |
-| `/sound-test`가 안 보임 | `.env`의 `DEV_GUILD_ID`, 봇 초대 시 `applications.commands` scope |
-| 봇이 들어오지만 소리가 안 남 | 채널에서 봇의 말하기 권한, 서버 로그의 재생 오류 |
+| `요청 실패: HTTP 500 ... 응답 본문 없음` | 서버(3001)가 켜져 있는지, Vite 터미널의 `http proxy error` |
+| 업로드 시 `Storage 업로드 실패` | `SUPABASE_SERVICE_ROLE_KEY`가 Secret key인지 |
+| 봇이 들어오지만 소리가 안 남 | 채널에서 봇의 말하기 권한, PC Discord 출력 장치·헤드셋 음소거 |
 | 토큰 교환 실패 | `DISCORD_CLIENT_ID`·`DISCORD_CLIENT_SECRET`, Redirects 항목 존재 여부 |
 
 ## 배포 (M5)
