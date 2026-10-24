@@ -1,0 +1,35 @@
+# 배포: docker compose up -d --build
+# 같은 폴더의 .env를 읽습니다 (DOMAIN, Discord·Supabase 값)
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_DISCORD_CLIENT_ID: ${VITE_DISCORD_CLIENT_ID}
+    env_file: .env
+    environment:
+      PORT: "3001"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # HTTPS 담당: DOMAIN으로 Let's Encrypt 인증서를 자동 발급·갱신하고 app으로 넘깁니다
+  caddy:
+    image: caddy:2
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

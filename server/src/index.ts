@@ -14,6 +14,11 @@ import { soundsRouter } from "./routes/sounds.ts";
 const app = express();
 app.use(express.json());
 
+// 컨테이너 헬스체크: 봇이 Discord에 붙어 있어야 정상
+app.get("/healthz", (_req, res) => {
+  res.status(bot.isReady() ? 200 : 503).json({ bot: bot.isReady() });
+});
+
 // 요청 로그: 어떤 기기에서 어떤 요청이 몇 ms 걸려 어떤 상태로 끝났는지 (디버깅용)
 app.use(API_BASE, (req, res, next) => {
   const started = performance.now();

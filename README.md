@@ -85,11 +85,11 @@ cloudflared tunnel --url http://localhost:5173  # 출력된 https 주소 복사
 | 봇이 들어오지만 소리가 안 남 | 채널에서 봇의 말하기 권한, PC Discord 출력 장치·헤드셋 음소거 |
 | 토큰 교환 실패 | `DISCORD_CLIENT_ID`·`DISCORD_CLIENT_SECRET`, Redirects 항목 존재 여부 |
 
-## 배포 (M5)
+## 배포 (무료: Oracle Cloud + DuckDNS + Caddy)
+
+봇이 음성 연결을 유지해야 해서 서버리스(Vercel 등)가 아닌 상시 실행 서버가 필요합니다.
+단계별 안내는 [deploy/DEPLOY.md](deploy/DEPLOY.md)를 보세요.
 
 ```bash
-npm run build   # client/dist 생성
-npm start       # 서버가 API + Activity 정적 파일을 함께 서빙
+docker compose up -d --build   # 서버에서: API + 봇 + Activity + HTTPS(Caddy)
 ```
-
-봇이 음성 연결을 유지해야 하므로 서버리스(Vercel 등)가 아닌 상시 실행 환경에 배포합니다.
