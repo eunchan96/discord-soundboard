@@ -22,8 +22,8 @@ settingsRouter.get("/settings", async (req, res) => {
 const LIMITS = {
   maxFileSizeBytes: [64 * 1024, 10 * 1024 * 1024],
   maxDurationSeconds: [1, 60],
-  maxQueueSize: [1, 50],
-  maxRequestsPerUser: [1, 10],
+  maxConcurrentSounds: [1, 16],
+  maxConcurrentPerUser: [1, 8],
 } as const;
 
 // PATCH /guilds/:guildId/settings

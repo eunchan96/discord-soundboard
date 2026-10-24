@@ -10,7 +10,7 @@ export type ErrorCode =
   | "VALIDATION_ERROR"
   | "FILE_TOO_LARGE"
   | "UNSUPPORTED_FORMAT"
-  | "QUEUE_FULL"
+  | "TOO_MANY_SOUNDS"
   | "BOT_BUSY_ELSEWHERE"
   | "BOT_NOT_AVAILABLE"
   | "INTERNAL_ERROR";
@@ -79,36 +79,38 @@ export interface CategoryListResponse {
   items: Category[];
 }
 
-// ── 재생 ──
-export interface PlaybackItem {
-  requestId: string;
+// ── 재생 (겹쳐 재생: 누를 때마다 바로 섞여서 나옴) ──
+export interface PlayingItem {
+  playId: string;
   sound: { id: string; name: string; durationSeconds: number };
   requestedBy: UserSummary;
-  requestedAt: string;
+  startedAt: string;
 }
 
 export interface PlaybackState {
   /** 봇이 접속해 있는 음성 채널 (없으면 null) */
   voiceChannelId: string | null;
-  current: (PlaybackItem & { startedAt: string }) | null;
-  queue: PlaybackItem[];
+  /** 지금 동시에 나오고 있는 사운드들 (먼저 시작한 순) */
+  playing: PlayingItem[];
 }
 
 export interface PlaybackRequestBody {
   soundId: string;
 }
 export interface PlaybackRequestResponse {
-  requestId: string;
-  /** 0 = 바로 재생, 1 이상 = 대기 순서 */
-  position: number;
+  playId: string;
+  /** 이 소리를 포함해 지금 동시에 나오는 개수 */
+  playingCount: number;
 }
 
 // ── 서버 설정 ──
 export interface GuildSettings {
   maxFileSizeBytes: number;
   maxDurationSeconds: number;
-  maxQueueSize: number;
-  maxRequestsPerUser: number;
+  /** 서버 전체에서 동시에 나올 수 있는 사운드 수 */
+  maxConcurrentSounds: number;
+  /** 한 사람이 동시에 틀 수 있는 사운드 수 */
+  maxConcurrentPerUser: number;
   allowMemberUpload: boolean;
   managerRoleId: string | null;
 }

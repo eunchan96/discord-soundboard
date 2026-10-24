@@ -1,22 +1,17 @@
-import { Router, type Response } from "express";
+import { Router } from "express";
 import { PermissionFlagsBits } from "discord.js";
 import type { PlaybackRequestBody, PlaybackRequestResponse } from "@soundboard/shared";
 import { bot, getUserVoiceChannelId } from "../bot/client.ts";
 import { requireGuild, requireManage } from "../context.ts";
 import { ensureGuildSettings } from "../guilds.ts";
 import { sendError } from "../http.ts";
-import { QueueError, cancel, enqueue, getState, skip, stopAll } from "../queue.ts";
+import { PlaybackError, getState, play, stopAll } from "../player.ts";
 import { getSound } from "../sounds.ts";
 
 export const playbackRouter = Router({ mergeParams: true });
 playbackRouter.use(requireGuild);
 
-function handleQueueError(res: Response, err: unknown) {
-  if (err instanceof QueueError) return sendError(res, err.code, err.message);
-  throw err;
-}
-
-// POST /guilds/:guildId/playback-requests { soundId }
+// POST /guilds/:guildId/playback-requests { soundId } — 누르는 즉시 재생, 다른 소리와 겹쳐 섞임
 playbackRouter.post("/playback-requests", async (req, res) => {
   const { guildId, profileId } = req.ctx!;
   const user = req.user!;
@@ -42,7 +37,7 @@ playbackRouter.post("/playback-requests", async (req, res) => {
 
   const settings = await ensureGuildSettings(guildId);
   try {
-    const result = enqueue(guildId, settings, {
+    const result = await play(guildId, settings, {
       channel,
       sound: {
         id: sound.id,
@@ -59,7 +54,8 @@ playbackRouter.post("/playback-requests", async (req, res) => {
     });
     res.status(202).json(result satisfies PlaybackRequestResponse);
   } catch (err) {
-    handleQueueError(res, err);
+    if (err instanceof PlaybackError) return sendError(res, err.code, err.message);
+    throw err;
   }
 });
 
@@ -68,25 +64,8 @@ playbackRouter.get("/playback-requests/state", (req, res) => {
   res.json(getState(req.ctx!.guildId));
 });
 
-// POST /guilds/:guildId/playback-requests/skip
-playbackRouter.post("/playback-requests/skip", requireManage, (req, res) => {
-  skip(req.ctx!.guildId);
-  res.status(204).end();
-});
-
-// POST /guilds/:guildId/playback-requests/stop
+// POST /guilds/:guildId/playback-requests/stop — 관리자: 전부 멈추고 퇴장
 playbackRouter.post("/playback-requests/stop", requireManage, (req, res) => {
   stopAll(req.ctx!.guildId);
   res.status(204).end();
-});
-
-// DELETE /guilds/:guildId/playback-requests/:requestId
-playbackRouter.delete("/playback-requests/:requestId", (req, res) => {
-  const { guildId, access } = req.ctx!;
-  try {
-    cancel(guildId, String(req.params.requestId), req.user!.id, access.canManage);
-    res.status(204).end();
-  } catch (err) {
-    handleQueueError(res, err);
-  }
 });

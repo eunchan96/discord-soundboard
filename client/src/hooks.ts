@@ -62,6 +62,26 @@ export function usePanelHeight<T extends HTMLElement>() {
   return ref;
 }
 
+/**
+ * 작은 화면(음성 채널 타일·PIP)인지. Discord 레이아웃 모드 이벤트를 우선 쓰고,
+ * 이벤트가 오지 않는 환경에서도 창이 아주 작으면 축소 화면으로 보여줍니다.
+ */
+export function useCompact(subscribe: (cb: (mode: number) => void) => () => void): boolean {
+  const [mode, setMode] = useState<number | null>(null);
+  const [small, setSmall] = useState(() => window.innerHeight < 320 || window.innerWidth < 360);
+
+  useEffect(() => subscribe(setMode), [subscribe]);
+  useEffect(() => {
+    const onResize = () => setSmall(window.innerHeight < 320 || window.innerWidth < 360);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  if (mode === 1 || mode === 2) return true; // PIP, GRID
+  if (mode === 0) return false; // FOCUSED
+  return small;
+}
+
 export function formatSeconds(s: number) {
   return s < 10 ? `${s.toFixed(1)}초` : `${Math.round(s)}초`;
 }

@@ -10,9 +10,11 @@ import type {
   SoundListResponse,
   SoundPatch,
 } from "@soundboard/shared";
-import { api, fetchAudioUrl, getSession, type Session } from "./discord.ts";
-import { formatSeconds, useDebounced, usePolling, useToast } from "./hooks.ts";
+import { api, fetchAudioUrl, getSession, subscribeLayoutMode, type Session } from "./discord.ts";
+import { formatSeconds, useCompact, useDebounced, usePolling, useToast } from "./hooks.ts";
 import { CategoryChips } from "./components/CategoryChips.tsx";
+import { CompactView } from "./components/CompactView.tsx";
+import { Logo } from "./components/Logo.tsx";
 import { PlaybackPanel } from "./components/PlaybackPanel.tsx";
 import { SoundSheet } from "./components/SoundSheet.tsx";
 import { UploadDialog } from "./components/UploadDialog.tsx";
@@ -43,7 +45,8 @@ function Soundboard({ session, guildId }: { session: Session; guildId: string })
   const [settings, setSettings] = useState<GuildSettings | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sounds, setSounds] = useState<Sound[] | null>(null);
-  const [playback, setPlayback] = useState<PlaybackState>({ voiceChannelId: null, current: null, queue: [] });
+  const [playback, setPlayback] = useState<PlaybackState>({ voiceChannelId: null, playing: [] });
+  const compact = useCompact(subscribeLayoutMode);
 
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -53,7 +56,6 @@ function Soundboard({ session, guildId }: { session: Session; guildId: string })
   const [uploadOpen, setUploadOpen] = useState(false);
   const [detail, setDetail] = useState<Sound | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
-  const [pendingSoundId, setPendingSoundId] = useState<string | null>(null);
 
   // ── 데이터 불러오기 ──
   const loadMe = useCallback(() => {
@@ -118,19 +120,16 @@ function Soundboard({ session, guildId }: { session: Session; guildId: string })
   }
 
   // ── 동작 ──
+  // 겹쳐 재생: 같은 버튼을 연달아 눌러도 매번 바로 나옴 (요청 중에도 버튼을 막지 않음)
   async function play(sound: Sound) {
-    setPendingSoundId(sound.id);
     try {
-      const r = await api<PlaybackRequestResponse>(session, `${base}/playback-requests`, {
+      await api<PlaybackRequestResponse>(session, `${base}/playback-requests`, {
         method: "POST",
         body: { soundId: sound.id },
       });
-      if (r.position > 0) toast.ok(`대기 ${r.position}번째: ${sound.name}`);
       loadPlayback();
     } catch (e) {
       toast.error((e as Error).message);
-    } finally {
-      setPendingSoundId(null);
     }
   }
 
@@ -195,10 +194,13 @@ function Soundboard({ session, guildId }: { session: Session; guildId: string })
   const canPlay = me?.inVoiceChannel ?? false;
   const filtered = Boolean(debouncedQuery.trim() || categoryId);
 
+  // 음성 채널 타일·PIP처럼 작게 보일 때는 재생 상태만 크게
+  if (compact) return <CompactView state={playback} canPlay={canPlay} />;
+
   return (
     <div className="app">
       <header className="topbar">
-        <h1>사운드보드</h1>
+        <h1 className="brand"><Logo size={26} /> ACESOUND</h1>
         {me?.canUpload && (
           <button className="btn btn-primary" onClick={() => setUploadOpen(true)}>+ 추가</button>
         )}
@@ -251,7 +253,7 @@ function Soundboard({ session, guildId }: { session: Session; guildId: string })
               <button
                 className="sound"
                 style={{ width: "100%" }}
-                disabled={!canPlay || pendingSoundId === sound.id}
+                disabled={!canPlay}
                 onClick={() => play(sound)}
                 aria-label={`${sound.name} 재생`}
               >
@@ -284,9 +286,7 @@ function Soundboard({ session, guildId }: { session: Session; guildId: string })
         state={playback}
         myUserId={session.user.id}
         canManage={me?.canManage ?? false}
-        onCancel={(id) => act(`/playback-requests/${id}`, "DELETE")}
-        onSkip={() => act("/playback-requests/skip", "POST")}
-        onStop={() => act("/playback-requests/stop", "POST", "재생을 멈추고 대기열을 비웠어요.")}
+        onStop={() => act("/playback-requests/stop", "POST", "재생을 모두 멈췄어요.")}
       />
 
       {uploadOpen && (

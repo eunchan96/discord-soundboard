@@ -66,6 +66,21 @@ async function startSession(): Promise<Session> {
   return { accessToken, user, guildId: discordSdk.guildId, channelId: discordSdk.channelId };
 }
 
+/** Discord가 Activity를 어떻게 보여주는지: 크게(FOCUSED) / 작은 창(PIP) / 음성 채널 타일(GRID) */
+export const LayoutMode = { FOCUSED: 0, PIP: 1, GRID: 2 } as const;
+
+/**
+ * 레이아웃 모드 변화를 구독합니다. 이 이벤트를 지원하지 않는 클라이언트에서는
+ * useCompact가 창 크기로 판단하므로 실패는 무시합니다.
+ */
+export function subscribeLayoutMode(onChange: (mode: number) => void): () => void {
+  const onLayout = (u: { layout_mode: number }) => onChange(u.layout_mode);
+  discordSdk.subscribe("ACTIVITY_LAYOUT_MODE_UPDATE", onLayout).catch(() => undefined);
+  return () => {
+    void discordSdk.unsubscribe("ACTIVITY_LAYOUT_MODE_UPDATE", onLayout).catch(() => undefined);
+  };
+}
+
 /** 상대 경로 + Bearer 토큰으로 API 호출. body가 객체면 JSON으로 보냅니다. 204면 undefined를 돌려줍니다. */
 export async function api<T>(
   session: Session,

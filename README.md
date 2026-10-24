@@ -1,7 +1,7 @@
 # Discord 사운드보드
 
 음성 채널에서 Discord Activity를 열어 서버 사운드를 검색·미리듣기·재생하는 서비스입니다.
-현재 단계: **M4 핵심 기능** (인증, 라이브러리·업로드, 재생 대기열, 권한)
+현재 단계: **M4 핵심 기능** (인증, 라이브러리·업로드, 겹쳐 재생, 권한)
 
 ```txt
 client/    Activity (React + Vite + Embedded App SDK)
@@ -56,10 +56,24 @@ cloudflared tunnel --url http://localhost:5173  # 출력된 https 주소 복사
 | 항목 | 기본값 (서버 설정으로 변경 가능) |
 | --- | --- |
 | 업로드 | MP3·OGG·WAV·M4A, 1MB·15초 이하, 모든 멤버 허용 → 서버에서 Ogg Opus로 변환·음량 정규화 |
-| 대기열 | 최대 10개, 한 사람당 3개 |
+| 재생 | 누르는 즉시 재생, 여러 개는 서버에서 섞어서 겹쳐 재생. 동시에 최대 8개, 한 사람당 3개 |
 | 관리자 | 서버 관리(Manage Server) 권한 또는 지정 역할 |
-| 채널 | 같은 서버에서 봇은 한 채널에만 있을 수 있음. 다른 채널에서 재생·대기 중이면 거절, 조용하면 요청자 채널로 이동 |
-| 퇴장 | 대기열이 빈 뒤 5분, 또는 채널에 사람이 없을 때 |
+| 채널 | 같은 서버에서 봇은 한 채널에만 있을 수 있음. 다른 채널에서 재생 중이면 거절, 조용하면 요청자 채널로 이동 |
+| 퇴장 | 마지막 소리가 끝나고 5분 뒤, 또는 채널에 사람이 없을 때 |
+| 작은 화면 | 음성 채널 타일·PIP에서는 재생 중인 소리만 크게 보여주는 축소 화면 |
+
+## Developer Portal 이미지·문구
+
+`assets/discord/`에 만들어 둔 이미지를 올립니다. (원본 SVG는 `render.mjs`)
+
+| 위치 | 항목 | 파일 / 값 |
+| --- | --- | --- |
+| General Information | Name | `ACESOUND` |
+| General Information | App Icon | `acesound-app-icon-1024.png` |
+| General Information | Description | 음성 채널에서 친구들과 사운드를 올리고 버튼 하나로 함께 재생하는 사운드보드. 여러 개를 눌러도 겹쳐서 바로 나와요. |
+| Activities → Art Assets | Cover Art (활동 목록 카드) | `acesound-cover-art-1920x1080.png` |
+| Activities → Art Assets | Embedded Background (음성 채널 그리드 배경) | `acesound-embedded-background-1920x1080.png` |
+| Bot | Icon (봇 프로필, 선택) | `acesound-app-icon-1024.png` |
 
 ## 문제 해결
 

@@ -7,8 +7,8 @@ interface SettingsRow {
   guild_id: string;
   max_file_size_bytes: number;
   max_duration_seconds: number;
-  max_queue_size: number;
-  max_requests_per_user: number;
+  max_concurrent_sounds: number;
+  max_concurrent_per_user: number;
   allow_member_upload: boolean;
   manager_role_id: string | null;
 }
@@ -19,8 +19,8 @@ function toSettings(r: SettingsRow): GuildSettings {
   return {
     maxFileSizeBytes: Number(r.max_file_size_bytes),
     maxDurationSeconds: r.max_duration_seconds,
-    maxQueueSize: r.max_queue_size,
-    maxRequestsPerUser: r.max_requests_per_user,
+    maxConcurrentSounds: r.max_concurrent_sounds,
+    maxConcurrentPerUser: r.max_concurrent_per_user,
     allowMemberUpload: r.allow_member_upload,
     managerRoleId: r.manager_role_id,
   };
@@ -42,8 +42,8 @@ export async function updateGuildSettings(guildId: string, patch: Partial<GuildS
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.maxFileSizeBytes !== undefined) row.max_file_size_bytes = patch.maxFileSizeBytes;
   if (patch.maxDurationSeconds !== undefined) row.max_duration_seconds = patch.maxDurationSeconds;
-  if (patch.maxQueueSize !== undefined) row.max_queue_size = patch.maxQueueSize;
-  if (patch.maxRequestsPerUser !== undefined) row.max_requests_per_user = patch.maxRequestsPerUser;
+  if (patch.maxConcurrentSounds !== undefined) row.max_concurrent_sounds = patch.maxConcurrentSounds;
+  if (patch.maxConcurrentPerUser !== undefined) row.max_concurrent_per_user = patch.maxConcurrentPerUser;
   if (patch.allowMemberUpload !== undefined) row.allow_member_upload = patch.allowMemberUpload;
   if (patch.managerRoleId !== undefined) row.manager_role_id = patch.managerRoleId;
 

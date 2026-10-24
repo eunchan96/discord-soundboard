@@ -106,11 +106,6 @@ input, select { font: inherit; color: var(--text); }
 @keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
 @media (prefers-reduced-motion: reduce) { .eq i { animation: none; height: 8px; } }
 
-.queue { list-style: none; margin: 8px 0 0; padding: 0; max-height: 140px; overflow-y: auto; }
-.queue li { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; color: var(--muted); }
-.queue .pos { width: 18px; text-align: right; color: var(--faint); }
-.queue .q-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.queue .mine .q-name::after { content: " · 내 요청"; color: var(--accent); }
 
 /* ── 모달·시트 ── */
 .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: grid; place-items: end center; z-index: 10; }
@@ -150,3 +145,27 @@ input, select { font: inherit; color: var(--text); }
 }
 .toast.error { border-left: 3px solid var(--danger); }
 .toast.ok { border-left: 3px solid var(--ok); }
+
+/* ── 브랜드 ── */
+.brand { display: flex; align-items: center; gap: 8px; letter-spacing: 0.04em; }
+
+/* ── 재생 중 목록 (겹쳐 재생) ── */
+.playing { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; max-height: 96px; overflow-y: auto; }
+.playing li { display: flex; align-items: center; gap: 6px; background: var(--card); border-radius: 999px; padding: 4px 10px; font-size: 13px; max-width: 100%; }
+.playing .p-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.playing .p-by { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.playing .mine { box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* ── 축소 화면 (음성 채널 타일·PIP) ── */
+.compact {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 12px; text-align: center;
+  background: radial-gradient(120% 90% at 50% 0%, #3a3f8f 0%, var(--bg-3) 70%);
+}
+.compact-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 20px; letter-spacing: 0.06em; }
+.compact-hint { margin: 0; color: var(--muted); font-size: 13px; }
+.compact-playing { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 280px; }
+.compact-playing li { display: flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 6px 10px; font-size: 14px; }
+.compact-playing .c-name { flex: 1; min-width: 0; text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact-playing .c-by { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.compact-playing .c-more { justify-content: center; color: var(--muted); background: transparent; }

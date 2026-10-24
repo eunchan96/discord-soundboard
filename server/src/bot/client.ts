@@ -1,7 +1,7 @@
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { env } from "../env.ts";
 import { ensureGuildSettings } from "../guilds.ts";
-import { leaveIfAlone } from "../queue.ts";
+import { leaveIfAlone } from "../player.ts";
 
 // Guilds: 서버·채널·역할 정보, GuildVoiceStates: 누가 어느 음성 채널에 있는지 (둘 다 Privileged 아님)
 export const bot = new Client({

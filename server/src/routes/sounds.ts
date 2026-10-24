@@ -16,7 +16,7 @@ import { requireGuild } from "../context.ts";
 import { BUCKET, db, unwrap } from "../db.ts";
 import { ensureGuildSettings } from "../guilds.ts";
 import { sendError } from "../http.ts";
-import { forgetCachedSound, localFile, removeSoundFromQueue } from "../queue.ts";
+import { forgetSound, localFile, removeSoundFromPlayback } from "../player.ts";
 import { getSound, listSounds, toSound, type SoundRow, type SoundSort } from "../sounds.ts";
 
 export const soundsRouter = Router({ mergeParams: true });
@@ -228,13 +228,13 @@ soundsRouter.delete("/sounds/:soundId", async (req, res) => {
     return sendError(res, "FORBIDDEN", "올린 사람이나 관리자만 삭제할 수 있어요.");
   }
 
-  // 순서: 목록에서 숨김 → 대기열에서 제거 → 파일 삭제 (파일 삭제가 실패해도 사용자에게는 이미 사라진 상태)
+  // 순서: 목록에서 숨김 → 재생 중이면 빼기 → 파일 삭제 (파일 삭제가 실패해도 사용자에게는 이미 사라진 상태)
   unwrap(
     await db.from("sounds").update({ deleted_at: new Date().toISOString() }).eq("id", row.id).eq("guild_id", guildId),
   );
-  removeSoundFromQueue(guildId, row.id);
+  removeSoundFromPlayback(guildId, row.id);
   const removed = await db.storage.from(BUCKET).remove([row.storage_path]);
   if (removed.error) console.error("[sounds] Storage 파일 삭제 실패 (재시도 필요)", row.storage_path, removed.error.message);
-  await forgetCachedSound(row.id);
+  await forgetSound(row.id);
   res.status(204).end();
 });

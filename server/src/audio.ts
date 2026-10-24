@@ -21,6 +21,35 @@ function parseTime(value: string): number {
 
 export class AudioError extends Error {}
 
+/** 믹서가 쓰는 형식: 48kHz, 스테레오, 16bit little-endian PCM */
+export const PCM_SAMPLE_RATE = 48_000;
+export const PCM_CHANNELS = 2;
+
+/** 오디오 파일을 PCM 샘플 배열로 디코딩합니다 (겹쳐 재생용 믹싱 입력). */
+export function decodeToPcm(inputPath: string): Promise<Int16Array> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(FFMPEG, [
+      "-hide_banner", "-nostdin", "-loglevel", "error",
+      "-i", inputPath,
+      "-f", "s16le", "-ac", String(PCM_CHANNELS), "-ar", String(PCM_SAMPLE_RATE),
+      "pipe:1",
+    ]);
+    const chunks: Buffer[] = [];
+    let stderr = "";
+    proc.stdout.on("data", (c: Buffer) => chunks.push(c));
+    proc.stderr.on("data", (c) => (stderr += c));
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code !== 0) return reject(new AudioError(`디코딩 실패: ${stderr.slice(-300)}`));
+      const buf = Buffer.concat(chunks);
+      // 정렬된 새 버퍼로 복사해야 Int16Array로 안전하게 볼 수 있음
+      const aligned = new ArrayBuffer(buf.length - (buf.length % 2));
+      new Uint8Array(aligned).set(buf.subarray(0, aligned.byteLength));
+      resolve(new Int16Array(aligned));
+    });
+  });
+}
+
 /** 파일 길이(초). 헤더에 길이가 없으면 끝까지 디코딩해서 잽니다. */
 export async function probeDuration(inputPath: string): Promise<number> {
   const header = await runFfmpeg(["-i", inputPath]);
