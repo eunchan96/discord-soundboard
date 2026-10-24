@@ -13,6 +13,23 @@ export interface Session {
   channelId: string | null;
 }
 
+/**
+ * 실패 응답을 사람이 읽을 수 있는 메시지로 바꿉니다.
+ * 우리 서버는 항상 ApiError JSON을 주지만, 개발 중 Vite 프록시가 서버에 닿지 못하면
+ * 빈 본문 500을 주므로 JSON이 아닐 때는 HTTP 상태와 경로를 그대로 보여줍니다.
+ */
+async function readApiError(res: Response, path: string): Promise<Error> {
+  const text = await res.text().catch(() => "");
+  try {
+    const body = JSON.parse(text) as ApiError;
+    if (body?.error?.message) return new Error(body.error.message);
+  } catch {
+    // JSON이 아님 → 아래 일반 메시지
+  }
+  const hint = text ? ` · ${text.slice(0, 120)}` : " · 응답 본문 없음 (서버에 닿지 못했을 수 있음)";
+  return new Error(`요청 실패: HTTP ${res.status} ${path}${hint}`);
+}
+
 let sessionPromise: Promise<Session> | null = null;
 
 /** 인증은 한 번만. React StrictMode가 effect를 두 번 실행해도 authorize()가 중복 호출되지 않게 Promise를 공유합니다. */
@@ -38,10 +55,7 @@ async function startSession(): Promise<Session> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code }),
   });
-  if (!res.ok) {
-    const err = (await res.json()) as ApiError;
-    throw new Error(err.error.message);
-  }
+  if (!res.ok) throw await readApiError(res, "/auth/token");
   const { accessToken, user } = (await res.json()) as TokenResponse;
 
   await discordSdk.commands.authenticate({ access_token: accessToken });
@@ -55,9 +69,6 @@ export async function api<T>(session: Session, path: string, init: RequestInit =
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${session.accessToken}` },
   });
-  if (!res.ok) {
-    const err = (await res.json()) as ApiError;
-    throw new Error(err.error.message);
-  }
+  if (!res.ok) throw await readApiError(res, path);
   return (await res.json()) as T;
 }
